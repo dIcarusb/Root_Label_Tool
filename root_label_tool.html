@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Root Labelling Tool – ONNX</title>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/ort.min.js">
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      color: #1e293b;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .app {
+      max-width: 1200px;
+      width: 100%;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      border-bottom: 2px solid #e9edf2;
+      padding-bottom: 14px;
+    }
+    header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      background: #f1f4f9;
+      color: #1e293b;
+    }
+    .btn:hover {
+      background: #e2e8f0;
+      transform: translateY(-1px);
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-success {
+      background: #16a34a;
+      color: #fff;
+    }
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+    }
+    .btn-warning {
+      background: #f59e0b;
+      color: #fff;
+    }
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 820px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: #f8fafc;
+      border-radius: 14px;
+      padding: 14px 16px;
+      border: 1px solid #e9edf2;
+      margin-bottom: 14px;
+    }
+    .panel-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    .image-list {
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .image-list .item {
+      padding: 6px 12px;
+      border-bottom: 1px solid #f1f4f9;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s;
+    }
+    .image-list .item:last-child {
+      border-bottom: none;
+    }
+    .image-list .item:hover {
+      background: #eef2ff;
+    }
+    .image-list .item.active {
+      background: #dbeafe;
+      font-weight: 600;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .control-row label {
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .control-row input[type="range"] {
+      flex: 1;
+      min-width: 80px;
+      accent-color: #2563eb;
+    }
+    .brush-size {
+      font-weight: 600;
+      min-width: 44px;
+      color: #2563eb;
+    }
+    .mode-group {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .mode-group .mode-btn {
+      padding: 4px 14px;
+      border-radius: 20px;
+      border: 2px solid #e2e8f0;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .mode-group .mode-btn.active-label {
+      border-color: #16a34a;
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .mode-group .mode-btn.active-erase {
+      border-color: #dc2626;
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    .cursor-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .cursor-selector select {
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      background: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+    .cursor-preview {
+      font-size: 20px;
+      width: 28px;
+      text-align: center;
+    }
+    .zoom-info {
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    .canvas-area {
+      background: #f8fafc;
+      border-radius: 14px;
+      border: 1px solid #e9edf2;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 400px;
+      height: 100%;
+    }
+    .canvas-area .placeholder {
+      color: #94a3b8;
+      font-size: 15px;
+      padding: 60px 20px;
+      text-align: center;
+    }
+    .canvas-wrapper {
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+      overflow: auto;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .canvas-wrapper canvas {
+      display: block;
+      image-rendering: pixelated;
+      transform-origin: center center;
+    }
+    .canvas-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .status-bar {
+      font-size: 13px;
+      color: #475569;
+      background: #f1f4f9;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid #e9edf2;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      min-height: 44px;
+    }
+    .status-bar .spacer {
+      flex: 1;
+    }
+    .badge {
+      background: #e2e8f0;
+      padding: 2px 12px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f4f9;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>🌱 Root Labelling Tool</h1>
+      <div>
+        <button class="btn btn-primary" id="loadModelBtn">📦 Load Model (ONNX)</button>
+        <button class="btn" id="loadDirBtn">📂 Load Directory</button>
+      </div>
+    </header>
+
+    <div class="main-grid">
+      <aside>
+        <div class="panel">
+          <div class="panel-title">Images</div>
+          <div class="image-list" id="imageList"></div>
+          <button class="btn" id="clearListBtn" style="width:100%;margin-top:8px;">🗑️ Clear All</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Brush</div>
+          <div class="control-row">
+            <label>Size</label>
+            <input type="range" id="brushSlider" min="0.5" max="30" step="0.5" value="5" />
+            <span class="brush-size" id="brushDisplay">5.0</span>
+          </div>
+          <div class="mode-group">
+            <button class="mode-btn active-label" id="labelBtn">✏️ Label</button>
+            <button class="mode-btn" id="eraseBtn">🧹 Erase</button>
+          </div>
+          <div class="cursor-selector">
+            <label>Cursor</label>
+            <select id="cursorSelect">
+              <option value="crosshair">✚ crosshair</option>
+              <option value="circle" selected>⬤ circle</option>
+              <option value="pointer">➤ pointer</option>
+              <option value="move">✥ move</option>
+              <option value="text">𝘐 text</option>
+            </select>
+            <span class="cursor-preview" id="cursorPreview">⬤</span>
+          </div>
+          <div style="margin-top:6px;font-size:12px;color:#64748b;">1 ↓ size &nbsp;·&nbsp; 2 ↑ size</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Actions</div>
+          <button class="btn btn-warning" id="predictBtn" disabled>🔮 Predict Mask</button>
+          <button class="btn btn-danger" id="clearMaskBtn" disabled>🗑️ Clear Mask</button>
+          <button class="btn" id="undoBtn" disabled>↩️ Undo</button>
+          <button class="btn btn-success" id="saveMaskBtn" disabled>💾 Save Mask</button>
+        </div>
+
+        <div class="panel" style="background:transparent;border:none;padding:0;">
+          <div class="zoom-info" id="zoomInfo">Zoom: 1.00× &nbsp;|&nbsp; scroll to zoom</div>
+        </div>
+      </aside>
+
+      <section class="canvas-area" id="canvasArea">
+        <div class="placeholder" id="placeholder">
+          <div style="font-size:48px;margin-bottom:12px;">🖼️</div>
+          <p>Load a directory and click an image name.</p>
+        </div>
+        <div class="canvas-wrapper" id="canvasWrapper" style="display:none;">
+          <canvas id="mainCanvas"></canvas>
+        </div>
+        <div class="canvas-toolbar">
+          <button class="btn" id="zoomInBtn">🔍+ Zoom In</button>
+          <button class="btn" id="zoomOutBtn">🔍− Zoom Out</button>
+          <button class="btn" id="resetViewBtn">⟲ Reset</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+      <span>✅ Ready</span>
+      <span class="spacer"></span>
+      <span class="badge" id="modelBadge">No model</span>
+      <span class="badge" id="imageBadge">No image</span>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // ============================================================
+      // 1. DOM REFERENCES
+      // ============================================================
+      const $ = s => document.querySelector(s);
+      const imageList = $('#imageList');
+      const canvas = $('#mainCanvas');
+      const wrapper = $('#canvasWrapper');
+      const placeholder = $('#placeholder');
+      const brushSlider = $('#brushSlider');
+      const brushDisplay = $('#brushDisplay');
+      const labelBtn = $('#labelBtn');
+      const eraseBtn = $('#eraseBtn');
+      const cursorSelect = $('#cursorSelect');
+      const cursorPreview = $('#cursorPreview');
+      const zoomInfo = $('#zoomInfo');
+      const statusBar = $('#statusBar');
+      const modelBadge = $('#modelBadge');
+      const imageBadge = $('#imageBadge');
+
+      const loadDirBtn = $('#loadDirBtn');
+      const clearListBtn = $('#clearListBtn');
+      const predictBtn = $('#predictBtn');
+      const clearMaskBtn = $('#clearMaskBtn');
+      const undoBtn = $('#undoBtn');
+      const saveMaskBtn = $('#saveMaskBtn');
+      const zoomInBtn = $('#zoomInBtn');
+      const zoomOutBtn = $('#zoomOutBtn');
+      const resetViewBtn = $('#resetViewBtn');
+      const loadModelBtn = $('#loadModelBtn');
+
+      // ============================================================
+      // 2. STATE
+      // ============================================================
+      const state = {
+        files: [],
+        currentIndex: -1,
+        img: null,
+        imgUrl: null,
+        imgWidth: 0,
+        imgHeight: 0,
+        mask: null,
+        maskHistory: [],
+        maxHistory: 20,
+        zoom: 1.0,
+        brushSize: 5,
+        labelMode: true,
+        isDrawing: false,
+        model: null,
+        modelLoaded: false,
+        modelLoading: false,
+        _historySaved: false,
+      };
+
+      // ============================================================
+      // 3. STATUS HELPERS
+      // ============================================================
+      function setStatus(msg, err = false) {
+        const span = statusBar.querySelector('span:first-child');
+        if (span) span.textContent = msg;
+        statusBar.style.color = err ? '#dc2626' : '#1e293b';
+      }
+
+      function updateModelBadge() {
+        if (state.modelLoaded) {
+          modelBadge.textContent = '✅ Model loaded';
+          modelBadge.style.background = '#dbeafe';
+          modelBadge.style.color = '#1d4ed8';
+        } else if (state.modelLoading) {
+          modelBadge.textContent = '⏳ Loading...';
+          modelBadge.style.background = '#fef3c7';
+          modelBadge.style.color = '#b45309';
+        } else {
+          modelBadge.textContent = 'No model';
+          modelBadge.style.background = '#f1f4f9';
+          modelBadge.style.color = '#64748b';
+        }
+        predictBtn.disabled = !state.modelLoaded || state.currentIndex === -1;
+      }
+
+      function updateImageBadge() {
+        if (state.currentIndex >= 0 && state.files[state.currentIndex]) {
+          imageBadge.textContent = '📷 ' + state.files[state.currentIndex].name;
+          imageBadge.style.background = '#dbeafe';
+          imageBadge.style.color = '#1d4ed8';
+        } else {
+          imageBadge.textContent = 'No image';
+          imageBadge.style.background = '#f1f4f9';
+          imageBadge.style.color = '#64748b';
+        }
+        const has = state.currentIndex >= 0;
+        clearMaskBtn.disabled = !has;
+        saveMaskBtn.disabled = !has;
+        predictBtn.disabled = !has || !state.modelLoaded;
+      }
+
+      function updateUndo() {
+        undoBtn.disabled = state.maskHistory.length === 0;
+      }
+
+      function updateZoomInfo() {
+        zoomInfo.textContent = `Zoom: ${state.zoom.toFixed(2)}×  |  scroll to zoom`;
+      }
+
+      // ============================================================
+      // 4. VIEWPORT & RENDER HELPERS
+      // ============================================================
+      function fitToViewport() {
+        if (!state.img) return;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const pad = 8;
+        const availW = wrapperRect.width - pad * 2;
+        const availH = wrapperRect.height - pad * 2;
+        if (availW <= 0 || availH <= 0) return;
+        const imgW = state.imgWidth;
+        const imgH = state.imgHeight;
+        const scaleX = availW / imgW;
+        const scaleY = availH / imgH;
+        const fit = Math.min(1, Math.min(scaleX, scaleY));
+        state.zoom = Math.max(0.2, fit);
+        applyTransform();
+        updateZoomInfo();
+      }
+
+      function applyTransform() {
+        const z = state.zoom;
+        canvas.style.transform = `scale(${z})`;
+        updateZoomInfo();
+      }
+
+      function renderList() {
+        imageList.innerHTML = '';
+        state.files.forEach((f, idx) => {
+          const div = document.createElement('div');
+          div.className = 'item' + (idx === state.currentIndex ? ' active' : '');
+          div.textContent = f.name;
+          div.dataset.index = idx;
+          div.addEventListener('click', () => selectImage(idx));
+          imageList.appendChild(div);
+        });
+        updateImageBadge();
+      }
+
+      // ============================================================
+      // 5. IMAGE LOADING
+      // ============================================================
+      function selectImage(index) {
+        if (index < 0 || index >= state.files.length) return;
+        if (state.imgUrl) {
+          URL.revokeObjectURL(state.imgUrl);
+          state.imgUrl = null;
+        }
+        state.currentIndex = index;
+        const file = state.files[index].file;
+        const url = URL.createObjectURL(file);
+        state.imgUrl = url;
+        const img = new Image();
+        img.onload = () => {
+          state.img = img;
+          state.imgWidth = img.width;
+          state.imgHeight = img.height;
+          state.mask = new Uint8Array(img.width * img.height);
+          state.maskHistory = [];
+          updateUndo();
+          setupCanvas();
+          render();
+          requestAnimationFrame(() => {
+            fitToViewport();
+          });
+          renderList();
+          setStatus(`Loaded: ${file.name} (${img.width}×${img.height})`);
+        };
+        img.onerror = () => {
+          setStatus(`Failed to load ${file.name}`, true);
+          URL.revokeObjectURL(url);
+          state.imgUrl = null;
+        };
+        img.src = url;
+      }
+
+      function setupCanvas() {
+        const w = state.imgWidth,
+          h = state.imgHeight;
+        canvas.width = w;
+        canvas.height = h;
+        canvas.style.width = '';
+        canvas.style.height = '';
+        wrapper.style.display = 'flex';
+        placeholder.style.display = 'none';
+        canvas.style.margin = 'auto';
+        applyTransform();
+        updateCursor();
+        canvas.removeEventListener('mousedown', onMouseDown);
+        canvas.removeEventListener('mousemove', onMouseMove);
+        canvas.removeEventListener('mouseup', onMouseUp);
+        canvas.removeEventListener('mouseleave', onMouseUp);
+        canvas.removeEventListener('wheel', onWheel);
+        canvas.addEventListener('mousedown', onMouseDown);
+        canvas.addEventListener('mousemove', onMouseMove);
+        canvas.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('mouseleave', onMouseUp);
+        canvas.addEventListener('wheel', onWheel, { passive: false });
+        canvas.removeEventListener('touchstart', onTouchStart);
+        canvas.removeEventListener('touchmove', onTouchMove);
+        canvas.removeEventListener('touchend', onTouchEnd);
+        canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+        canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+      }
+
+      // ============================================================
+      // 6. RENDER - Draws image + green mask overlay
+      // ============================================================
+      function render() {
+        if (!state.img) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width,
+          h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(state.img, 0, 0, w, h);
+
+        if (state.mask) {
+          const imageData = ctx.getImageData(0, 0, w, h);
+          const data = imageData.data;
+          const mask = state.mask;
+          for (let i = 0; i < mask.length; i++) {
+            if (mask[i] > 128) {
+              const idx = i * 4;
+              data[idx] = 0;
+              data[idx + 1] = 255;
+              data[idx + 2] = 0;
+              data[idx + 3] = 255;
+            }
+          }
+          ctx.putImageData(imageData, 0, 0);
+        }
+      }
+
+      // ============================================================
+      // 7. BRUSH DRAWING
+      // ============================================================
+      function getCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width;
+        const sy = canvas.height / rect.height;
+        return { x: Math.round((e.clientX - rect.left) * sx), y: Math.round((e.clientY - rect.top) * sy) };
+      }
+
+      function getCoordsTouch(touch) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width;
+        const sy = canvas.height / rect.height;
+        return { x: Math.round((touch.clientX - rect.left) * sx), y: Math.round((touch.clientY - rect.top) * sy) };
+      }
+
+      function drawBrush(x, y) {
+        if (!state.mask) return;
+        const w = state.imgWidth,
+          h = state.imgHeight;
+        if (x < 0 || x >= w || y < 0 || y >= h) return;
+
+        if (!state._historySaved) {
+          state.maskHistory.push(new Uint8Array(state.mask));
+          if (state.maskHistory.length > state.maxHistory) state.maskHistory.shift();
+          updateUndo();
+          state._historySaved = true;
+        }
+
+        const r = state.brushSize;
+        const val = state.labelMode ? 255 : 0;
+        const mask = state.mask;
+        const r2 = r * r;
+        for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) {
+          for (let dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
+            if (dx * dx + dy * dy <= r2) {
+              const px = x + dx,
+                py = y + dy;
+              if (px >= 0 && px < w && py >= 0 && py < h) {
+                mask[py * w + px] = val;
+              }
+            }
+          }
+        }
+        render();
+      }
+
+      // ============================================================
+      // 8. MOUSE / TOUCH EVENTS
+      // ============================================================
+      function onMouseDown(e) {
+        if (!state.mask) return;
+        state.isDrawing = true;
+        state._historySaved = false;
+        const pos = getCoords(e);
+        drawBrush(pos.x, pos.y);
+      }
+
+      function onMouseMove(e) {
+        if (!state.isDrawing) return;
+        const pos = getCoords(e);
+        drawBrush(pos.x, pos.y);
+      }
+
+      function onMouseUp() {
+        state.isDrawing = false;
+        state._historySaved = false;
+      }
+
+      let touchId = null;
+
+      function onTouchStart(e) {
+        e.preventDefault();
+        if (!state.mask || e.touches.length === 0) return;
+        const t = e.touches[0];
+        touchId = t.identifier;
+        state.isDrawing = true;
+        state._historySaved = false;
+        const pos = getCoordsTouch(t);
+        drawBrush(pos.x, pos.y);
+      }
+
+      function onTouchMove(e) {
+        e.preventDefault();
+        if (!state.isDrawing || !state.mask) return;
+        let t = e.touches[0];
+        for (const tt of e.touches) {
+          if (tt.identifier === touchId) { t = tt; break; }
+        }
+        const pos = getCoordsTouch(t);
+        drawBrush(pos.x, pos.y);
+      }
+
+      function onTouchEnd() {
+        state.isDrawing = false;
+        state._historySaved = false;
+        touchId = null;
+      }
+
+      function onWheel(e) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        state.zoom = Math.max(0.2, Math.min(5.0, state.zoom + delta));
+        applyTransform();
+        updateZoomInfo();
+      }
+
+      // ============================================================
+      // 9. CURSOR
+      // ============================================================
+      function updateCursor() {
+        const val = cursorSelect.value;
+        canvas.style.cursor = val;
+        const symbols = { crosshair: '✚', circle: '⬤', pointer: '➤', move: '✥', text: '𝘐' };
+        cursorPreview.textContent = symbols[val] || '⬤';
+      }
+
+      // ============================================================
+      // 10. ACTIONS: Undo, Clear, Save
+      // ============================================================
+      function undo() {
+        if (state.maskHistory.length === 0) return;
+        state.mask = state.maskHistory.pop();
+        updateUndo();
+        render();
+        setStatus('Undo ✓');
+      }
+
+      function clearMask() {
+        if (!state.mask) return;
+        state.maskHistory.push(new Uint8Array(state.mask));
+        if (state.maskHistory.length > state.maxHistory) state.maskHistory.shift();
+        updateUndo();
+        state.mask.fill(0);
+        render();
+        setStatus('Mask cleared');
+      }
+
+      async function saveMask() {
+        if (!state.mask || !state.img) return;
+
+        const baseName = state.files[state.currentIndex]?.name.replace(/\.[^.]+$/, '') || 'mask';
+        const defaultName = `${baseName}_mask.jpg`;
+
+        const w = state.imgWidth,
+          h = state.imgHeight;
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = w;
+        maskCanvas.height = h;
+        const ctx = maskCanvas.getContext('2d');
+        const imageData = ctx.createImageData(w, h);
+        const data = imageData.data;
+        const mask = state.mask;
+        for (let i = 0; i < mask.length; i++) {
+          const v = mask[i];
+          const idx = i * 4;
+          data[idx] = v;
+          data[idx + 1] = v;
+          data[idx + 2] = v;
+          data[idx + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        const blob = await new Promise(resolve => maskCanvas.toBlob(resolve, 'image/jpeg', 0.92));
+
+        if (window.showSaveFilePicker) {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: defaultName,
+              types: [
+                { description: 'JPEG Image', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } }
+              ],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            setStatus(`✅ Saved as ${handle.name}`);
+            return;
+          } catch (err) {
+            if (err.name === 'AbortError') {
+              setStatus('Save cancelled');
+              return;
+            }
+            console.warn('Save picker failed, falling back to download', err);
+          }
+        }
+
+        const useFallback = confirm(
+          'Your browser does not support choosing a save location.\n' +
+          'The mask will be downloaded to your default downloads folder.\n\n' +
+          `Filename: ${defaultName}\n\nClick OK to download.`
+        );
+        if (!useFallback) {
+          setStatus('Save cancelled');
+          return;
+        }
+
+        const a = document.createElement('a');
+        a.download = defaultName;
+        a.href = URL.createObjectURL(blob);
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        setStatus(`📥 Downloading ${defaultName}`);
+      }
+
+      // ============================================================
+      // 11. LOAD DIRECTORY
+      // ============================================================
+      function loadDirectory(files) {
+        const valid = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/tiff', 'image/webp'];
+        const list = [];
+        for (const f of files) {
+          if (!valid.includes(f.type) && !f.name.match(/\.(png|jpe?g|bmp|tiff?|webp)$/i)) continue;
+          list.push({ name: f.name, file: f });
+        }
+        if (list.length === 0) {
+          setStatus('No image files found', true);
+          return;
+        }
+        if (state.imgUrl) {
+          URL.revokeObjectURL(state.imgUrl);
+          state.imgUrl = null;
+        }
+        state.img = null;
+        state.mask = null;
+        state.maskHistory = [];
+        state.currentIndex = -1;
+        state.files = list;
+        renderList();
+        wrapper.style.display = 'none';
+        placeholder.style.display = 'block';
+        setStatus(`Loaded ${list.length} image(s)`);
+        if (list.length) selectImage(0);
+      }
+
+      // ============================================================
+      // 12. CALCULATE TARGET SIZE (EXACT PYTHON FUNCTION TRANSLATION)
+      // ============================================================
+      function calculateTargetSize(originalWidth, originalHeight, maxSize = 1024) {
+            let h = originalHeight;
+            let w = originalWidth;
+        
+            // If image is larger than maxSize, scale it down first
+            if (h > maxSize || w > maxSize) {
+                const scale = maxSize / Math.max(h, w);
+                h = Math.round(h * scale);
+                w = Math.round(w * scale);
+            }
+        
+            // Step 1: Round DOWN to the nearest multiple of 32 (not nearest)
+            // This ensures the size is ALWAYS divisible by 32
+            let targetH = Math.floor(h / 32) * 32;
+            let targetW = Math.floor(w / 32) * 32;
+        
+            // Step 2: Ensure minimum size (at least 32)
+            targetH = Math.max(32, targetH);
+            targetW = Math.max(32, targetW);
+        
+            // Step 3: Determine the final square size (use the larger dimension)
+            const finalSize = Math.max(targetH, targetW);
+        
+            // Step 4: Calculate proportional resize (preserve aspect ratio)
+            let newH, newW;
+            if (h > w) {
+                newH = finalSize;
+                newW = Math.floor(w * (finalSize / h) / 32) * 32; // Round down to multiple of 32
+            } else {
+                newW = finalSize;
+                newH = Math.floor(h * (finalSize / w) / 32) * 32; // Round down to multiple of 32
+            }
+        
+            // Step 5: Make dimensions valid (not zero)
+            newH = Math.max(32, newH);
+            newW = Math.max(32, newW);
+        
+            return { newHeight: newH, newWidth: newW, finalSize: finalSize };
+        }
+
+      // ============================================================
+      // 13. LOAD ONNX MODEL
+      // ============================================================
+      async function loadModelFromFile(file) {
+        if (state.modelLoading) return;
+        try {
+          state.modelLoading = true;
+          updateModelBadge();
+          setStatus(`Loading ONNX model: ${file.name}...`);
+
+          const arrayBuffer = await file.arrayBuffer();
+          const session = await ort.InferenceSession.create(arrayBuffer, {
+            executionProviders: ['wasm', 'cpu'],
+          });
+
+          state.model = session;
+          state.modelLoaded = true;
+          state.modelLoading = false;
+          updateModelBadge();
+          setStatus(`✅ ONNX model loaded: ${file.name}`);
+          console.log('Model inputs:', session.inputNames);
+          console.log('Model outputs:', session.outputNames);
+        } catch (err) {
+          state.modelLoading = false;
+          state.modelLoaded = false;
+          updateModelBadge();
+          setStatus(`❌ Model load failed: ${err.message}`, true);
+          console.error(err);
+        }
+      }
+
+      // ============================================================
+      // 14. SEGMENTATION - DYNAMIC SIZE USING calculateTargetSize()
+      // ============================================================
+      async function predictMask() {
+        if (!state.modelLoaded || !state.img) {
+          setStatus('No model or image loaded', true);
+          return;
+        }
+
+        try {
+          setStatus('Segmenting with ONNX…');
+          predictBtn.disabled = true;
+          predictBtn.textContent = '⏳ Running…';
+
+          const img = state.img;
+          const originalW = img.width;
+          const originalH = img.height;
+
+          // --- STEP 1: Calculate optimal target size ---
+          // This uses the EXACT SAME logic as your Python function!
+          const { newHeight: targetH, newWidth: targetW, finalSize } = calculateTargetSize(originalW, originalH, 768);
+
+          console.log(`📐 Original: ${originalW}×${originalH}`);
+          console.log(`📐 Target (calculated): ${targetW}×${targetH}`);
+          console.log(`📐 Final square size: ${finalSize}`);
+
+          // --- STEP 2: Resize image to calculated target size ---
+          const canvas2 = document.createElement('canvas');
+          canvas2.width = targetW;
+          canvas2.height = targetH;
+          const ctx2 = canvas2.getContext('2d');
+          ctx2.drawImage(img, 0, 0, targetW, targetH);
+          const imageData = ctx2.getImageData(0, 0, targetW, targetH);
+          const data = imageData.data;
+
+          // --- STEP 3: Convert to NCHW format [batch, channels, height, width] ---
+          // This matches the working JS code's data layout
+          const inputData = new Float32Array(1 * 3 * targetH * targetW);
+
+            for (let i = 0; i < targetH; i++) {      // height
+                for (let j = 0; j < targetW; j++) {  // width
+                    const pixelIdx = (i * targetW + j) * 4;
+                    const nchwIdx = i * targetW + j;  // Index in flattened NCHW layout
+
+                    // Channel 0 (R)
+                    inputData[0 * targetH * targetW + nchwIdx] = data[pixelIdx] / 255.0;
+                    // Channel 1 (G)
+                    inputData[1 * targetH * targetW + nchwIdx] = data[pixelIdx + 1] / 255.0;
+                    // Channel 2 (B)
+                    inputData[2 * targetH * targetW + nchwIdx] = data[pixelIdx + 2] / 255.0;
+                }
+            }
+
+          // --- STEP 4: Create tensor with NCHW layout ---
+          const tensor = new ort.Tensor('float32', inputData, [1, 3, targetH, targetW]);
+
+          // --- STEP 5: Run inference ---
+          const inputName = state.model.inputNames[0];
+          const feeds = { [inputName]: tensor };
+          const results = await state.model.run(feeds);
+
+          // --- STEP 6: Get output ---
+          const outputName = state.model.outputNames[0];
+          const outputTensor = results[outputName];
+          const outputData = outputTensor.data;
+
+          // --- STEP 7: Get output dimensions ---
+          let outputH, outputW;
+          if (outputTensor.dims.length === 4) {
+            if (outputTensor.dims[1] === 1 || outputTensor.dims[1] === 3) {
+              outputH = outputTensor.dims[2];
+              outputW = outputTensor.dims[3];
+            } else {
+              outputH = outputTensor.dims[1];
+              outputW = outputTensor.dims[2];
+            }
+          } else if (outputTensor.dims.length === 3) {
+            outputH = outputTensor.dims[1];
+            outputW = outputTensor.dims[2];
+          } else {
+            throw new Error('Unexpected output shape: ' + outputTensor.dims.join('×'));
+          }
+
+          console.log(`📊 Output shape: ${outputW}×${outputH}`);
+
+          // --- STEP 8: Create mask at original resolution ---
+          const mask = new Uint8Array(originalW * originalH);
+          const scaleX = outputW / originalW;
+          const scaleY = outputH / originalH;
+
+          for (let y = 0; y < originalH; y++) {
+            for (let x = 0; x < originalW; x++) {
+              const srcX = Math.min(Math.round(x * scaleX), outputW - 1);
+              const srcY = Math.min(Math.round(y * scaleY), outputH - 1);
+              const idx = srcY * outputW + srcX;
+              mask[y * originalW + x] = outputData[idx] > 0.5 ? 255 : 0;
+            }
+          }
+
+          // --- STEP 9: Save to history and render ---
+          state.maskHistory.push(new Uint8Array(state.mask));
+          if (state.maskHistory.length > state.maxHistory) state.maskHistory.shift();
+          updateUndo();
+
+          state.mask = mask;
+          render();
+          setStatus('✅ Segmentation complete - Edit with brush if needed');
+
+        } catch (err) {
+          setStatus(`❌ Segmentation error: ${err.message}`, true);
+          console.error(err);
+        } finally {
+          predictBtn.disabled = false;
+          predictBtn.textContent = '🔮 Predict Mask';
+        }
+      }
+
+      // ============================================================
+      // 15. RESET VIEW
+      // ============================================================
+      function resetView() {
+        fitToViewport();
+      }
+
+      // ============================================================
+      // 16. UI BINDINGS
+      // ============================================================
+      brushSlider.addEventListener('input', () => {
+        state.brushSize = parseFloat(brushSlider.value);
+        brushDisplay.textContent = state.brushSize.toFixed(1);
+      });
+
+      function setMode(label) {
+        state.labelMode = label;
+        labelBtn.className = 'mode-btn' + (label ? ' active-label' : '');
+        eraseBtn.className = 'mode-btn' + (!label ? ' active-erase' : '');
+      }
+      labelBtn.addEventListener('click', () => setMode(true));
+      eraseBtn.addEventListener('click', () => setMode(false));
+
+      cursorSelect.addEventListener('change', updateCursor);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '1') {
+          e.preventDefault();
+          let v = Math.max(0.5, state.brushSize - 1);
+          state.brushSize = v;
+          brushSlider.value = v;
+          brushDisplay.textContent = v.toFixed(1);
+        } else if (e.key === '2') {
+          e.preventDefault();
+          let v = Math.min(30, state.brushSize + 1);
+          state.brushSize = v;
+          brushSlider.value = v;
+          brushDisplay.textContent = v.toFixed(1);
+        } else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+          e.preventDefault();
+          undo();
+        }
+      });
+
+      loadDirBtn.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.webkitdirectory = true;
+        input.multiple = true;
+        input.onchange = () => {
+          if (input.files && input.files.length) {
+            loadDirectory(input.files);
+          }
+          input.remove();
+        };
+        input.click();
+      });
+
+      clearListBtn.addEventListener('click', () => {
+        if (state.imgUrl) {
+          URL.revokeObjectURL(state.imgUrl);
+          state.imgUrl = null;
+        }
+        state.files = [];
+        state.currentIndex = -1;
+        state.img = null;
+        state.mask = null;
+        state.maskHistory = [];
+        updateUndo();
+        renderList();
+        wrapper.style.display = 'none';
+        placeholder.style.display = 'block';
+        setStatus('Cleared all images');
+      });
+
+      loadModelBtn.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.onnx';
+        input.onchange = () => {
+          if (input.files && input.files.length > 0) {
+            loadModelFromFile(input.files[0]);
+          }
+          input.remove();
+        };
+        input.click();
+      });
+
+      predictBtn.addEventListener('click', predictMask);
+      clearMaskBtn.addEventListener('click', clearMask);
+      undoBtn.addEventListener('click', undo);
+      saveMaskBtn.addEventListener('click', saveMask);
+      zoomInBtn.addEventListener('click', () => { state.zoom = Math.min(5.0, state.zoom + 0.25);
+        applyTransform();
+        updateZoomInfo(); });
+      zoomOutBtn.addEventListener('click', () => { state.zoom = Math.max(0.2, state.zoom - 0.25);
+        applyTransform();
+        updateZoomInfo(); });
+      resetViewBtn.addEventListener('click', resetView);
+
+      // ============================================================
+      // 17. INIT
+      // ============================================================
+      setStatus('Ready – load a directory and an ONNX model');
+      updateModelBadge();
+      updateImageBadge();
+      updateUndo();
+      brushDisplay.textContent = state.brushSize.toFixed(1);
+      setMode(true);
+      updateCursor();
+
+      if (typeof ort === 'undefined') {
+        setStatus('⚠️ ONNX Runtime not loaded – check internet', true);
+      } else {
+        setStatus('✅ ONNX Runtime ready');
+      }
+
+      console.log('Root Labelling Tool – ONNX with dynamic sizing');
+      console.log('📐 Images will be dynamically resized using calculateTargetSize()');
+    })();
+  </script>
+</body>
+</html>
