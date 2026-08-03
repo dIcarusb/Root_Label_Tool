@@ -1,5 +1,9 @@
 # Root_Label_Tool
-A web-based tool for segmenting and labelling roots in images using ONNX models.
+
+![HTML](https://img.shields.io/badge/HTML-5-E34F26?logo=html5&logoColor=white)
+![License](https://img.shields.io/badge/License-AGPL--3.0-blue)
+
+A web-based tool for segmenting and labelling roots in images using ONNX models. Your data is not shared; everything is local!
 
 [DIRECT LINK](https://dicarusb.github.io/Root_Label_Tool/root_label_tool.html)
 
@@ -15,6 +19,26 @@ A web-based tool for segmenting and labelling roots in images using ONNX models.
 - Zoom in/out with mouse wheel or buttons
 
 ## Quick Start
+
+### Option 1: Online (No Installation)
+Open the provided URL in any modern browser.
+
+[CLICK HERE!](https://dicarusb.github.io/Root_Label_Tool/root_label_tool.html)
+
+### Option 2: Local Installation
+1. Download the file `root_label_tool.html`
+
+2. **Double-click `root_label_tool.html`** to open it in your browser.
+
+Or run a local server:
+```bash
+python -m http.server 8000
+```
+Then open `http://localhost:8000`
+
+---
+
+## 📖 How to Use
 
 1. Open the HTML file in a modern browser (Chrome, Edge, Opera recommended)
 2. Click **📦 Load Model (ONNX)** and select your `.onnx` file
